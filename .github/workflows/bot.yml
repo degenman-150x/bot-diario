@@ -2,8 +2,8 @@ name: Bot Diario
 
 on:
   schedule:
-    # 22:06 UTC -> Equivale exactamente a las 19:06 de Argentina
-    - cron: "06 22 * * *"
+    - cron: "13 8 * * *"
+    - cron: "13 14 * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,6 +16,13 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Debug info
+        run: |
+          echo "EVENT: $GITHUB_EVENT_NAME"
+          echo "Runner UTC time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "Runner AR time: $(TZ='America/Argentina/Buenos_Aires' date +"%Y-%m-%d %H:%M:%S %Z")"
+        shell: bash
+
       - run: pip install requests yfinance pytz
 
       - name: Run bot
@@ -24,4 +31,3 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
         run: python main.py
-        
