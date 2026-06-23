@@ -4,106 +4,101 @@ from datetime import datetime, timedelta
 import pytz
 import os
 
-# ==========================================
-# 1. CREDENCIALES (DESDE GITHUB SECRETS)
-# ==========================================
+# credenciales
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 FOOTBALL_API_KEY = os.environ["FOOTBALL_API_KEY"]
 
-# ==========================================
-# 2. SECTOR MERCADOS (PRECIOS)
-# ==========================================
-print("📈 Extrayendo datos del mercado...")
-
+# BTC
 try:
-    btc = requests.get(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-    ).json()["bitcoin"]["usd"]
-except Exception:
-    btc = "Error al cargar"
+    r = requests.get(
+        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+        timeout=5
+    ).json()
 
+    btc = f"${round(r['bitcoin']['usd']):,}"
+except Exception:
+    btc = "Error BTC"
+
+# S&P500
 try:
-    ticker = yf.Ticker("^GSPC")
-    sp500 = ticker.fast_info.get("last_price", None) or ticker.info.get("regularMarketPrice", "Error")
-    if isinstance(sp500, float):
-        sp500 = f"{sp500:.2f}"
+    sp500 = f"${round(yf.Ticker('^GSPC').fast_info['last_price']):,}"
 except Exception:
-    sp500 = "Error al cargar"
+    sp500 = "Error S&P500"
 
-# ==========================================
-# 3. SECTOR FÚTBOL (MUNDIAL)
-# ==========================================
-print("⚽ Extrayendo partidos del Mundial...")
+# fútbol
+url = "https://v3.football.api-sports.io/fixtures"
+headers = {"x-apisports-key": FOOTBALL_API_KEY}
 
-url_football = "https://v3.football.api-sports.io/fixtures"
-headers_football = {"x-apisports-key": FOOTBALL_API_KEY}
+arg = pytz.timezone("America/Argentina/Buenos_Aires")
+today = datetime.now(arg).date()
 
-arg_tz = pytz.timezone("America/Argentina/Buenos_Aires")
-hoy_arg = datetime.now(arg_tz).date()
+dates = [
+    today - timedelta(days=1),
+    today,
+    today + timedelta(days=1)
+]
 
-fechas = [hoy_arg - timedelta(days=1), hoy_arg, hoy_arg + timedelta(days=1)]
+matches = []
+football_error = False
 
-partidos_raw = []
-
-for fecha in fechas:
-    params = {"date": fecha.strftime("%Y-%m-%d")}
+for d in dates:
     try:
-        response = requests.get(url_football, headers=headers_football, params=params)
-        data = response.json()
-        if "response" in data:
-            partidos_raw.extend(data["response"])
+        r = requests.get(
+            url,
+            headers=headers,
+            params={"date": d.strftime("%Y-%m-%d")},
+            timeout=5
+        )
+
+        for p in r.json().get("response", []):
+
+            if "World Cup" not in p["league"]["name"]:
+                continue
+
+            if p["fixture"]["status"]["short"] == "FT":
+                continue
+
+            t = datetime.fromisoformat(
+                p["fixture"]["date"].replace("Z", "+00:00")
+            ).astimezone(arg)
+
+            if t.date() != today:
+                continue
+
+            matches.append(
+                f"• *{p['teams']['home']['name']}* vs *{p['teams']['away']['name']}* - {t:%H:%M} (AR)"
+            )
+
     except Exception:
-        pass
+        football_error = True
 
-mundial = []
-
-for p in partidos_raw:
-    if "World Cup" not in p["league"]["name"]:
-        continue
-
-    status = p["fixture"]["status"]["short"]
-    if status == "FT":
-        continue
-
-    utc_time = datetime.fromisoformat(
-        p["fixture"]["date"].replace("Z", "+00:00")
-    )
-
-    local_time = utc_time.astimezone(arg_tz)
-
-    if local_time.date() != hoy_arg:
-        continue
-
-    home = p["teams"]["home"]["name"]
-    away = p["teams"]["away"]["name"]
-    hora = local_time.strftime("%H:%M")
-
-    mundial.append(f"• {home} vs {away} - {hora} (AR)")
-
-if not mundial:
-    partidos_texto = "No hay partidos pendientes para hoy 😢"
+if matches:
+    football_text = "\n".join(matches)
+elif football_error:
+    football_text = "⚠️ Error consultando partidos"
 else:
-    partidos_texto = "\n".join(mundial)
-
-# ==========================================
-# 4. MENSAJE FINAL
-# ==========================================
-print("🚀 Enviando a Telegram...")
+    football_text = "Sin partidos"
 
 mensaje = (
-    "📊 REPO DEGEN HOY\n\n"
-    f"💰 BTC: {btc} USD\n"
-    f"🇺🇸 S&P500: {sp500} USD\n\n"
-    "⚽ MUNDIAL HOY:\n"
-    f"{partidos_texto}"
+    "📊 *REPORTE DIARIO* 📊\n\n"
+    f"💰 *BTC:* {btc}\n"
+    f"🇺🇸 *S&P500:* {sp500}\n\n"
+    f"⚽ *MUNDIAL HOY:*\n{football_text}"
 )
 
-url_telegram = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+try:
+    r = requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+        data={
+            "chat_id": CHAT_ID,
+            "text": mensaje,
+            "parse_mode": "Markdown"
+        },
+        timeout=5
+    )
 
-requests.post(url_telegram, data={
-    "chat_id": CHAT_ID,
-    "text": mensaje
-})
+    print("Telegram:", r.status_code)
 
-print("✅ Listo")
+except Exception as e:
+    print("Error Telegram:", e)
