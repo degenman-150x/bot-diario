@@ -2,8 +2,8 @@ name: Bot Diario
 
 on:
   schedule:
-    - cron: "0 14 * * *"
-    - cron: "0 20 * * *"
+    # 22:06 UTC -> Equivale exactamente a las 19:06 de Argentina
+    - cron: "06 22 * * *"
   workflow_dispatch:
 
 jobs:
@@ -24,3 +24,4 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
         run: python main.py
+        
