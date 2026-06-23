@@ -1,30 +1,17 @@
-name: Bot Diario
-
+asi?name: Bot Diario
 on:
   schedule:
-    - cron: "13 8 * * *"
-    - cron: "13 14 * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
-
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
-      - name: Debug info
-        run: |
-          echo "EVENT: $GITHUB_EVENT_NAME"
-          echo "Runner UTC time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "Runner AR time: $(TZ='America/Argentina/Buenos_Aires' date +"%Y-%m-%d %H:%M:%S %Z")"
-        shell: bash
-
       - run: pip install requests yfinance pytz
-
       - name: Run bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
