@@ -1,104 +1,77 @@
+#--------------------------------------------------IMPORTS--------------------------------------------------
 import requests
 import yfinance as yf
-from datetime import datetime, timedelta
-import pytz
-import os
+import json
+#--------------------------------------------------CREDENCIALES--------------------------------------------------
+TOKEN = "8627079133:AAFAiGBhF1Sz6mtgLB7ImY1HW7xvs54JqMM"
+CHAT_ID = "7977516481"
+#--------------------------------------------------BITCOIN--------------------------------------------------
+btc = requests.get(
+    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+).json()["bitcoin"]["usd"]
+#--------------------------------------------------S&P500--------------------------------------------------
+sp500 = yf.Ticker("^GSPC").fast_info["last_price"]
+#--------------------------------------------------POLYMARKET--------------------------------------------------
+nombre_evento = "world-cup-winner"
+url = "https://gamma-api.polymarket.com/events"
 
-# credenciales
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-CHAT_ID = os.environ["CHAT_ID"]
-FOOTBALL_API_KEY = os.environ["FOOTBALL_API_KEY"]
+def ganador_mundial_prob():
+    #Parametros para buscar el evento
+    filtro = {"slug": nombre_evento}
 
-# BTC
-try:
-    r = requests.get(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
-        timeout=5
-    ).json()
+    #Hacer la peticion a la api
+    respuesta = requests.get(url, params=filtro, timeout=10)
+    respuesta.raise_for_status()
+    
+    #Convertir la respuesta a formato json y agarrar el primer evento
+    datos = respuesta.json()[0]
+    resultados = []
 
-    btc = f"${round(r['bitcoin']['usd']):,}"
-except Exception:
-    btc = "Error BTC"
+    #Recorrer cada mercado(seleccion) dentro del evento
+    for mercado in datos["markets"]: 
+        
+        #Saltear mercados cerrados (ignora selecciones ya eliminadas)
+        if mercado.get("closed"):
+            continue  
 
-# S&P500
-try:
-    sp500 = f"${round(yf.Ticker('^GSPC').fast_info['last_price']):,}"
-except Exception:
-    sp500 = "Error S&P500"
+        
+        try:
+            #Desempaquetar las opciones y sus precios (probabilidades)
+            opciones = json.loads(mercado["outcomes"])
+            probabilidades = json.loads(mercado["outcomePrices"])
 
-# fútbol
-url = "https://v3.football.api-sports.io/fixtures"
-headers = {"x-apisports-key": FOOTBALL_API_KEY}
+            #Buscar en qué posición está el "Sí"
+            indice_si = opciones.index("Yes")
+            valor_probabilidad = float(probabilidades[indice_si]) * 100
 
-arg = pytz.timezone("America/Argentina/Buenos_Aires")
-today = datetime.now(arg).date()
+            #Guardar el equipo y su probabilidad
+            resultados.append({
+                "equipo": mercado.get("groupItemTitle"),
+                "prob": round(valor_probabilidad, 1)
+                })
+        except:
+            continue
+        
+    #Ordenar de mayor a menor probabilidad
+    resultados.sort(key=lambda x: x["prob"], reverse=True)
+    return resultados
+#--------------------------------------------------MOSTRAR--------------------------------------------------
+#Usar la funcion y guardar el resultado a una variable
+lista_mundial = ganador_mundial_prob() 
 
-dates = [
-    today - timedelta(days=1),
-    today,
-    today + timedelta(days=1)
-]
+#Recorrer la lista para armar el texto con equipos y probabilidades
+texto_mundial = ""
+for resultado in lista_mundial:
+    texto_mundial += f"🏆{resultado['equipo']}: {resultado['prob']}%\n"
+        
+#Armar el mensaje final
+mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n🎲 PROBABILIDADES POLYMARKET 🎲\n⚽ Ganador Del Mundial:\n{texto_mundial}" 
 
-matches = []
-football_error = False
-
-for d in dates:
-    try:
-        r = requests.get(
-            url,
-            headers=headers,
-            params={"date": d.strftime("%Y-%m-%d")},
-            timeout=5
-        )
-
-        for p in r.json().get("response", []):
-
-            if "World Cup" not in p["league"]["name"]:
-                continue
-
-            if p["fixture"]["status"]["short"] == "FT":
-                continue
-
-            t = datetime.fromisoformat(
-                p["fixture"]["date"].replace("Z", "+00:00")
-            ).astimezone(arg)
-
-            if t.date() != today:
-                continue
-
-            matches.append(
-                f"• *{p['teams']['home']['name']}* vs *{p['teams']['away']['name']}* - {t:%H:%M} (AR)"
-            )
-
-    except Exception:
-        football_error = True
-
-if matches:
-    football_text = "\n".join(matches)
-elif football_error:
-    football_text = "⚠️ Error consultando partidos"
-else:
-    football_text = "Sin partidos"
-
-mensaje = (
-    "📊 *REPORTE DIARIO* 📊\n\n"
-    f"💰 *BTC:* {btc}\n"
-    f"🇺🇸 *S&P500:* {sp500}\n\n"
-    f"⚽ *MUNDIAL HOY:*\n{football_text}"
+#Enviarlo
+requests.post( 
+    f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+    data={
+        "chat_id": CHAT_ID,
+        "text": mensaje
+    }
 )
-
-try:
-    r = requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-        data={
-            "chat_id": CHAT_ID,
-            "text": mensaje,
-            "parse_mode": "Markdown"
-        },
-        timeout=5
-    )
-
-    print("Telegram:", r.status_code)
-
-except Exception as e:
-    print("Error Telegram:", e)
