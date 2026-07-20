@@ -35,7 +35,7 @@ minimas = respuesta_clima["daily"]["temperature_2m_min"]
 prob_lluvia = respuesta_clima["daily"]["precipitation_probability_max"]
 
 #pongo los dias de la semana en una lista
-dias_semana = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
+dias_semana = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
 
 # Recorro los 7 días y armo una línea de texto por cada uno.
 lineas = []
@@ -44,7 +44,7 @@ for i in range(7):
     nombre_dia = dias_semana[fecha.weekday()]         # nombre del día en español
     fecha_corta = fecha.strftime("%d/%m")             # me quedo solo con día/mes
 
-    linea = f"{nombre_dia} {fecha_corta}: {round(minimas[i])}°/{round(maximas[i])}° - lluvia {prob_lluvia[i]}%"
+    linea = f"{nombre_dia} {fecha_corta}:  ({round(minimas[i])}° / {round(maximas[i])}°)  -  lluvia {prob_lluvia[i]}%"
     lineas.append(linea)
 
 # Unir todas las líneas en un solo bloque de texto, una por renglón.
@@ -52,7 +52,7 @@ pronostico = "\n".join(lineas)
 
 #--------------------------------------------------MOSTRAR--------------------------------------------------
 #Armar el mensaje final
-mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️  CLIMA ☁️\n{pronostico}"
+mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️ CLIMA ☁️\n{pronostico}"
 
 #Enviarlo
 requests.post( 
