@@ -1,71 +1,58 @@
 #--------------------------------------------------IMPORTS--------------------------------------------------
 import requests
 import yfinance as yf
-import json
+from datetime import datetime
 #--------------------------------------------------CREDENCIALES--------------------------------------------------
 TOKEN = "8627079133:AAFAiGBhF1Sz6mtgLB7ImY1HW7xvs54JqMM"
 CHAT_ID = "7977516481"
+
 #--------------------------------------------------BITCOIN--------------------------------------------------
 btc = requests.get(
     "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 ).json()["bitcoin"]["usd"]
+
 #--------------------------------------------------S&P500--------------------------------------------------
 sp500 = yf.Ticker("^GSPC").fast_info["last_price"]
-#--------------------------------------------------POLYMARKET--------------------------------------------------
-nombre_evento = "world-cup-winner"
-url = "https://gamma-api.polymarket.com/events"
 
-def ganador_mundial_prob():
-    #Parametros para buscar el evento
-    filtro = {"slug": nombre_evento}
+#--------------------------------------------------CLIMA--------------------------------------------------
+respuesta_clima = requests.get(
+    "https://api.open-meteo.com/v1/forecast",
+    #coordenadas, datos de cada dia, zona horaria, cantidad de dias.
+    params={
+        "latitude": -35.8667,
+        "longitude": -61.9,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        "timezone": "America/Argentina/Buenos_Aires",
+        "forecast_days": 7
+    },
+    timeout=10 # si no responde en 10 segundos, corta el intento en vez de colgarse
+).json()
 
-    #Hacer la peticion a la api
-    respuesta = requests.get(url, params=filtro, timeout=10)
-    respuesta.raise_for_status()
-    
-    #Convertir la respuesta a formato json y agarrar el primer evento
-    datos = respuesta.json()[0]
-    resultados = []
+# Guardo en variables los datos
+dias = respuesta_clima["daily"]["time"]
+maximas = respuesta_clima["daily"]["temperature_2m_max"]
+minimas = respuesta_clima["daily"]["temperature_2m_min"]
+prob_lluvia = respuesta_clima["daily"]["precipitation_probability_max"]
 
-    #Recorrer cada mercado(seleccion) dentro del evento
-    for mercado in datos["markets"]: 
-        
-        #Saltear mercados cerrados (ignora selecciones ya eliminadas)
-        if mercado.get("closed"):
-            continue  
+#pongo los dias de la semana en una lista
+dias_semana = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
 
-        
-        try:
-            #Desempaquetar las opciones y sus precios (probabilidades)
-            opciones = json.loads(mercado["outcomes"])
-            probabilidades = json.loads(mercado["outcomePrices"])
+# Recorro los 7 días y armo una línea de texto por cada uno.
+lineas = []
+for i in range(7):
+    fecha = datetime.strptime(dias[i], "%Y-%m-%d")  # convierto el texto en fecha real
+    nombre_dia = dias_semana[fecha.weekday()]         # nombre del día en español
+    fecha_corta = fecha.strftime("%d/%m")             # me quedo solo con día/mes
 
-            #Buscar en qué posición está el "Sí"
-            indice_si = opciones.index("Yes")
-            valor_probabilidad = float(probabilidades[indice_si]) * 100
+    linea = f"{nombre_dia} {fecha_corta}: {round(minimas[i])}°/{round(maximas[i])}° - lluvia {prob_lluvia[i]}%"
+    lineas.append(linea)
 
-            #Guardar el equipo y su probabilidad
-            resultados.append({
-                "equipo": mercado.get("groupItemTitle"),
-                "prob": round(valor_probabilidad, 1)
-                })
-        except:
-            continue
-        
-    #Ordenar de mayor a menor probabilidad
-    resultados.sort(key=lambda x: x["prob"], reverse=True)
-    return resultados
+# Unir todas las líneas en un solo bloque de texto, una por renglón.
+pronostico = "\n".join(lineas)
+
 #--------------------------------------------------MOSTRAR--------------------------------------------------
-#Usar la funcion y guardar el resultado a una variable
-lista_mundial = ganador_mundial_prob() 
-
-#Recorrer la lista para armar el texto con equipos y probabilidades
-texto_mundial = ""
-for resultado in lista_mundial:
-    texto_mundial += f"🏆{resultado['equipo']}: {resultado['prob']}%\n"
-        
 #Armar el mensaje final
-mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n🎲 PROBABILIDADES POLYMARKET 🎲\n⚽ Ganador Del Mundial:\n{texto_mundial}" 
+mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️  CLIMA ☁️\n{pronostico}"
 
 #Enviarlo
 requests.post( 
