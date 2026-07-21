@@ -3,8 +3,9 @@ import requests
 import yfinance as yf
 from datetime import datetime
 #--------------------------------------------------CREDENCIALES--------------------------------------------------
-TOKEN = "8627079133:AAFAiGBhF1Sz6mtgLB7ImY1HW7xvs54JqMM"
-CHAT_ID = "7977516481"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 #--------------------------------------------------BITCOIN--------------------------------------------------
 btc = requests.get(
