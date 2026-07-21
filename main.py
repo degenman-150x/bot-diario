@@ -2,6 +2,8 @@
 import requests
 import yfinance as yf
 from datetime import datetime
+import os
+from groq import Groq
 #--------------------------------------------------CREDENCIALES--------------------------------------------------
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -51,9 +53,24 @@ for i in range(7):
 # Unir todas las líneas en un solo bloque de texto, una por renglón.
 pronostico = "\n".join(lineas)
 
+#--------------------------------------------------IA-----------------------------------------------------
+#FRASE:
+cliente = Groq(api_key=GROQ_API_KEY)
+#Creár la función reutilizable
+def preguntar_ia(prompt):
+    response = cliente.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model="llama-3.3-70b-versatile",
+        temperature=1.5
+    )
+    return response.choices[0].message.content.strip()
+
+prompt_frase = "Dame una frase filosofica aleatoria que sea profunda y pero reconocida y facil de entender. Respondé solo con la cita y el autor, sin introducciones, explicaciones ni comentarios."
+frase = preguntar_ia(prompt_frase)
+
 #--------------------------------------------------MOSTRAR--------------------------------------------------
 #Armar el mensaje final
-mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️ CLIMA ☁️\n{pronostico}"
+mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️ CLIMA ☁️\n{pronostico}\n\n📜 FRASE DEL DIA 📜\n{frase}"
 
 #Enviarlo
 requests.post( 
