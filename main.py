@@ -9,6 +9,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+cliente = Groq(api_key=GROQ_API_KEY) 
 #--------------------------------------------------BITCOIN--------------------------------------------------
 btc = requests.get(
     "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
@@ -55,7 +56,6 @@ pronostico = "\n".join(lineas)
 
 #--------------------------------------------------IA-----------------------------------------------------
 #FRASE:
-cliente = Groq(api_key=GROQ_API_KEY)
 #Creár la función reutilizable
 def preguntar_ia(prompt):
     response = cliente.chat.completions.create(
