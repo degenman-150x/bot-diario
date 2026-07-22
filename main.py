@@ -4,12 +4,13 @@ import yfinance as yf
 from datetime import datetime
 import os
 from groq import Groq
+import random
 #--------------------------------------------------CREDENCIALES--------------------------------------------------
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-cliente = Groq(api_key=GROQ_API_KEY) 
+client = Groq(api_key=GROQ_API_KEY) 
 #--------------------------------------------------BITCOIN--------------------------------------------------
 btc = requests.get(
     "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
@@ -38,7 +39,7 @@ maximas = respuesta_clima["daily"]["temperature_2m_max"]
 minimas = respuesta_clima["daily"]["temperature_2m_min"]
 prob_lluvia = respuesta_clima["daily"]["precipitation_probability_max"]
 
-#pongo los dias de la semana en una lista
+# Pongo los dias de la semana en una lista
 dias_semana = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
 
 # Recorro los 7 días y armo una línea de texto por cada uno.
@@ -55,22 +56,32 @@ for i in range(7):
 pronostico = "\n".join(lineas)
 
 #--------------------------------------------------IA-----------------------------------------------------
-#FRASE:
-#Creár la función reutilizable
+#FRASE FILOSOFICA:
+#Crear la función reutilizable para mandarle a la IA
 def preguntar_ia(prompt):
-    response = cliente.chat.completions.create(
+    response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
-        model="llama-3.3-70b-versatile",
-        temperature=1.5
+        model = "openai/gpt-oss-120b"
     )
-    return response.choices[0].message.content.strip()
+    return response.choices[0].message.content
 
-prompt_frase = "Dame una frase filosofica aleatoria que sea profunda y pero reconocida y facil de entender. Respondé solo con la cita y el autor, sin introducciones, explicaciones ni comentarios."
-frase = preguntar_ia(prompt_frase)
+#Listas con opciones
+inspiraciones = ["el estoicismo", "el existencialismo", "el taoísmo", "el budismo zen", "la filosofía griega clásica", "la filosofía de Nietzsche"]
+temas = ["el tiempo", "el cambio", "el sufrimiento", "la libertad", "el miedo", "el deseo", "la muerte", "el autoconocimiento", "el sentido de la vida", "la virtud", "las relaciones humanas"]
+
+#Crear la función reutilizable para generar el prompt
+def generar_prompt():
+    inspiracion = random.choice(inspiraciones)
+    tema = random.choice(temas)
+    return(f"Dame una reflexión filosófica breve sobre {tema}, inspirada en {inspiracion}. Debe ser original, clara y memorable. Expresá una sola idea profunda usando lenguaje simple y concreto. Evitá palabras abstractas innecesarias y metáforas comunes. Respondé solo con la frase.")
+
+#generar y enviar el prompt con inspiracion aleatoria y mostrar la respuesta de la IA
+prompt = generar_prompt()
+respuesta = preguntar_ia(prompt)
 
 #--------------------------------------------------MOSTRAR--------------------------------------------------
 #Armar el mensaje final
-mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️ CLIMA ☁️\n{pronostico}\n\n📜 FRASE DEL DIA 📜\n{frase}"
+mensaje = f"📊 MERCADO 📊\n💰 BTC: {round(btc)} USD\n🇺🇸 S&P500: {round(sp500)} USD\n\n☁️ CLIMA ☁️\n{pronostico}\n\n📜 FRASE DEL DIA 📜\n{respuesta}"
 
 #Enviarlo
 requests.post( 
